@@ -2,17 +2,19 @@
 FROM python:3.11-slim
 
 # download  & install pipenv
-RUN pip install --upgrade pip && pip install pipenv
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir pipenv
 
 # working directory
 WORKDIR /src
 
 # copy Pipfile and Pipfile.lock
-COPY Pipfile Pipfile.lock /src/
+COPY Pipfile Pipfile.lock .
 
 # install dependencies
 RUN pipenv install --deploy --ignore-pipfile
 
 # copy the rest of the application code
-COPY . /src/
+COPY ./src .
 
+# command to run the application
+CMD ["pipenv", "run", "python",  "scraping/scraping.py"]
