@@ -3,18 +3,18 @@ import requests
 import time
 import pandas as pd
 
-
 # ------------------------------ Fonctions ------------------------------
-def get_all_real_estate_data(limit=50):
+def get_all_real_estate_data(limit=50, max_records=1000):
     """
     Récupère l'ensemble des enregistrements de l'inventaire immobilier de l'État
-    en gérant la pagination.
+    en gérant la pagination et en limitant le nombre total d'enregistrements.
 
     Args:
         limit (int): Le nombre d'enregistrements par page (par défaut 50).
+        max_records (int): Le nombre maximum d'enregistrements à récupérer (par défaut 1000).
     
     Returns:
-        list: Une liste contenant tous les enregistrements récupérés.
+        list: Une liste contenant les enregistrements récupérés, jusqu'à la limite spécifiée.
     """
     all_records = []
     offset = 0
@@ -25,6 +25,11 @@ def get_all_real_estate_data(limit=50):
     
     while True:
         print(f"Récupération de la page {page_number} (offset: {offset})...")
+        
+        # Arrêter si le nombre d'enregistrements récupérés dépasse la limite
+        if len(all_records) >= max_records:
+            print("Limite d'enregistrements atteinte. Arrêt de la récupération.")
+            break
         
         params = {
             'limit': limit,
@@ -42,7 +47,7 @@ def get_all_real_estate_data(limit=50):
             if not records:
                 print("Toutes les pages ont été récupérées.")
                 break
-                
+            
             all_records.extend(records)
             
             # Incrémenter l'offset pour la prochaine page
@@ -56,34 +61,32 @@ def get_all_real_estate_data(limit=50):
             print(f"Une erreur est survenue lors de la requête : {e}")
             break
     
-    return all_records
+    # S'assurer que le nombre final ne dépasse pas la limite
+    return all_records[:max_records]
 
 # ------------------------------ Utilisation du script ------------------------------
-# Exécuter la fonction pour récupérer toutes les données
-print("Début de la récupération de toutes les données immobilières de l'État...")
+# Exécuter la fonction pour récupérer les 1000 premiers enregistrements
+print("Début de la récupération des données immobilières de l'État...")
+# On peut aussi appeler la fonction comme ceci : get_all_real_estate_data(max_records=5000) pour récupérer 5000 enregistrements
 all_data = get_all_real_estate_data(limit=50)
 
 # Afficher quelques informations sur les données récupérées
 if all_data:
     print(f"\nRécupération terminée. Nombre total d'enregistrements : {len(all_data)}")
     
-    # Afficher les 5 premiers enregistrements pour vérification
-    print("\n--- Les 5 premiers enregistrements ---")
-    for i, record in enumerate(all_data[:5]):
-        print(f"[{i+1}] ID : {record.get('id')}, Type de bien : {record.get('type_de_bien')}, Région : {record.get('region_1_nom')}")
-
-    # Enregistrement des données dans un fichier CSV
-    print("\nSauvegarde des données au format CSV...")
-    
-    
     # Création d'un DataFrame à partir de la liste de dictionnaires
     df = pd.DataFrame(all_data)
     
+    # Affichage du DataFrame avant la sauvegarde
+    print("\n--- Aperçu du DataFrame ---")
+    print(df.head())
+    
+    # Enregistrement des données dans un fichier Parquet
+    print("\nSauvegarde des données au format Parquet...")
+    
     # Chemin de sauvegarde dans le conteneur (qui est monté sur votre machine)
-    output_path = '/src/data/donnees_immobilieres.csv'
+    output_path = '/src/data/donnees_immobilieres.parquet'
     
-    # Enregistrement du DataFrame dans un fichier CSV
-    df.to_csv(output_path, index=False, encoding='utf-8')
-    
+    # Enregistrement du DataFrame dans un fichier Parquet
+    df.to_parquet(output_path, index=False)
     print(f"Sauvegarde terminée. Fichier disponible à l'emplacement : {output_path}")
-    
