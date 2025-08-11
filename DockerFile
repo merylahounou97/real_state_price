@@ -17,4 +17,4 @@ RUN pipenv install --deploy --ignore-pipfile
 COPY ./src .
 
 # command to run the application
-CMD ["pipenv", "run", "python",  "scraping/scraping.py"]
+CMD ["pipenv", "run", "python",  "scripts/scraping.py"]

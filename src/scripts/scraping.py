@@ -2,14 +2,23 @@
 import requests
 import time
 import pandas as pd
+from pathlib import Path
+
+# ------------------------------ Constantes ------------------------------
+# URL de l'API avec le jeu de données de l'inventaire immobilier de l'État
+URL_API = "https://www.data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/inventaire-immobilier-de-letat/records"
+
+# Output path for data in container
+OUTPUT_PATH = './src/data/donnees_immobilieres.parquet'
 
 # ------------------------------ Fonctions ------------------------------
-def get_all_real_estate_data(limit=50, max_records=1000):
+def get_all_real_estate_data(url=URL_API, limit=50, max_records=1000):
     """
     Récupère l'ensemble des enregistrements de l'inventaire immobilier de l'État
     en gérant la pagination et en limitant le nombre total d'enregistrements.
 
     Args:
+        url (str): L'URL de l'API pour récupérer les données.
         limit (int): Le nombre d'enregistrements par page (par défaut 50).
         max_records (int): Le nombre maximum d'enregistrements à récupérer (par défaut 1000).
     
@@ -19,9 +28,6 @@ def get_all_real_estate_data(limit=50, max_records=1000):
     all_records = []
     offset = 0
     page_number = 1
-    
-    # URL de l'API avec le jeu de données de l'inventaire immobilier de l'État
-    url = "https://www.data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/inventaire-immobilier-de-letat/records"
     
     while True:
         print(f"Récupération de la page {page_number} (offset: {offset})...")
@@ -64,10 +70,9 @@ def get_all_real_estate_data(limit=50, max_records=1000):
     # S'assurer que le nombre final ne dépasse pas la limite
     return all_records[:max_records]
 
-# ------------------------------ Utilisation du script ------------------------------
-# Exécuter la fonction pour récupérer les 1000 premiers enregistrements
+# ------------------------------ Application ------------------------------
+# Exécuter la fonction pour récupérer les enregistrements
 print("Début de la récupération des données immobilières de l'État...")
-# On peut aussi appeler la fonction comme ceci : get_all_real_estate_data(max_records=5000) pour récupérer 5000 enregistrements
 all_data = get_all_real_estate_data(limit=50)
 
 # Afficher quelques informations sur les données récupérées
@@ -84,9 +89,9 @@ if all_data:
     # Enregistrement des données dans un fichier Parquet
     print("\nSauvegarde des données au format Parquet...")
     
-    # Chemin de sauvegarde dans le conteneur (qui est monté sur votre machine)
-    output_path = '/src/data/donnees_immobilieres.parquet'
+    # Création du dossier si il n'existe pas
+    Path(OUTPUT_PATH).parent.mkdir(parents=True, exist_ok=True)
     
     # Enregistrement du DataFrame dans un fichier Parquet
-    df.to_parquet(output_path, index=False)
-    print(f"Sauvegarde terminée. Fichier disponible à l'emplacement : {output_path}")
+    df.to_parquet(OUTPUT_PATH, index=False)
+    print(f"Sauvegarde terminée. Fichier disponible à l'emplacement : {OUTPUT_PATH}")
