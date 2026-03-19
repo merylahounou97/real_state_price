@@ -1,6 +1,10 @@
 # Dockerfile for a Python application
 FROM python:3.11-slim
 
+# Install Java 11
+RUN apt-get update && apt-get install -y openjdk-11-jdk
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+
 # download  & install pipenv
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir pipenv
 
@@ -17,4 +21,4 @@ RUN pipenv install --deploy --ignore-pipfile
 COPY ./src .
 
 # command to run the application
-CMD ["pipenv", "run", "python",  "scripts/scraping.py"]
+CMD ["pipenv", "run", "bash", "-c", "python scripts/scraping.py && python scripts/data_processing_spark.py"]
