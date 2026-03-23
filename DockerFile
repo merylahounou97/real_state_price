@@ -1,21 +1,23 @@
 # Dockerfile for a Python application
 FROM python:3.11-slim
 
-# Install Java 11
-RUN apt-get update && apt-get install -y openjdk-11-jdk
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+# Install Java
+RUN apt-get update && apt-get install -y default-jdk && apt-get clean
 
-# download  & install pipenv
+ENV JAVA_HOME=/usr/lib/jvm/default-java
+ENV PATH=$JAVA_HOME/bin:$PATH
+
+# download & install pipenv
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir pipenv
 
 # working directory
 WORKDIR /src
 
 # copy Pipfile and Pipfile.lock
-COPY Pipfile Pipfile.lock .
+COPY Pipfile Pipfile.lock ./
 
-# install dependencies
-RUN pipenv install --deploy --ignore-pipfile
+# install dependencies (use system python directly)
+RUN pipenv install --deploy --ignore-pipfile --python /usr/local/bin/python3.11
 
 # copy the rest of the application code
 COPY ./src .

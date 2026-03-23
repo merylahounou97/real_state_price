@@ -16,6 +16,9 @@ spark = SparkSession.builder.appName("RealStateProcessing").getOrCreate()
 # chargement des données
 df_raw = spark.read.parquet(FILE_PATH)
 
+print("Début du nettoyage des données immobilières...")
+print("Nombre d'enregistrements avant nettoyage :", df_raw.count())
+
 # suppression des doublons suivant l'id
 df = df_raw.dropDuplicates(['id'])
 
@@ -49,6 +52,9 @@ df = (df
     .withColumn("ministere", when(lower(col("ministere")).like("%ecologie%") | lower(col("ministere")).like("%environnement%"), "ministère de l'Ecologie, développement et aménagement durables").otherwise(col("ministere")))
 )
 
+
+print("Nombre d'enregistrements après nettoyage :", df.count())
+print("Nettoyage terminé. Sauvegarde des données nettoyées au format Parquet...")
 
 # sauvegarde des données nettoyées au format Parquet
 df.write.mode("overwrite").parquet(OUTPUT_PATH)
