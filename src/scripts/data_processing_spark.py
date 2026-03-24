@@ -1,17 +1,26 @@
 # ------------------------------ Importation des bibliothèques ------------------------------
+from pathlib import Path
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lower, when, to_date
+from delta import configure_spark_with_delta_pip
 
 # ------------------------------ Constantes ------------------------------
 # chemin pour accéder aux données
-FILE_PATH = './src/data/donnees_immobilieres.parquet'
+FILE_PATH = './src/data/raw/donnees_immobilieres.parquet'
 
 # chemin pour sauvegarder les données nettoyées
-OUTPUT_PATH = './src/data/donnees_immobilieres_cleaned.parquet'
+OUTPUT_PATH = './src/data/clean/donnees_immobilieres_cleaned.delta'
 
 # ------------------------------ Application ------------------------------
 # initialisation SparkSession
-spark = SparkSession.builder.appName("RealStateProcessing").getOrCreate()
+builder = (
+    SparkSession.builder
+    .appName("RealStateProcessing")
+    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+)
+
+spark = configure_spark_with_delta_pip(builder).getOrCreate()
 
 # chargement des données
 df_raw = spark.read.parquet(FILE_PATH)
@@ -54,7 +63,10 @@ df = (df
 
 
 print("Nombre d'enregistrements après nettoyage :", df.count())
-print("Nettoyage terminé. Sauvegarde des données nettoyées au format Parquet...")
+print("Nettoyage terminé. Sauvegarde des données nettoyées au format Delta...")
 
-# sauvegarde des données nettoyées au format Parquet
-df.write.mode("overwrite").parquet(OUTPUT_PATH)
+# Création du dossier si il n'existe pas
+Path(OUTPUT_PATH).parent.mkdir(parents=True, exist_ok=True)
+
+# sauvegarde des données nettoyées au format delta
+df.write.format("delta").mode("overwrite").save(OUTPUT_PATH)

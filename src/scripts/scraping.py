@@ -9,7 +9,7 @@ from pathlib import Path
 URL_API = "https://www.data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/inventaire-immobilier-de-letat/records"
 
 # Output path for data in container
-OUTPUT_PATH = './src/data/donnees_immobilieres.parquet'
+OUTPUT_PATH = './src/data/raw/donnees_immobilieres.parquet'
 
 # ------------------------------ Fonctions ------------------------------
 def get_all_real_estate_data(url=URL_API, limit=50, max_records=1000):
