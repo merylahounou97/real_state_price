@@ -68,5 +68,5 @@ print("Nettoyage terminé. Sauvegarde des données nettoyées au format Delta...
 # Création du dossier si il n'existe pas
 Path(OUTPUT_PATH).parent.mkdir(parents=True, exist_ok=True)
 
-# sauvegarde des données nettoyées au format delta
+# Sauvegarde des données nettoyées au format delta
 df.write.format("delta").mode("overwrite").save(OUTPUT_PATH)
