@@ -38,8 +38,8 @@ jobs:
 
       - name: Format notebooks with nbqa
         run: |
-          nbqa ruff . --nbqa-process-cells --select I --fix
-          nbqa black . --nbqa-process-cells
+          nbqa ruff . --select I --fix
+          nbqa black .
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5

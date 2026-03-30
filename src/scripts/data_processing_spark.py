@@ -3,7 +3,7 @@ from pathlib import Path
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lower, when, to_date
 from delta import configure_spark_with_delta_pip
-
+  
 # ------------------------------ Constantes ------------------------------
 # chemin pour accéder aux données
 FILE_PATH = './src/data/raw/donnees_immobilieres.parquet'
@@ -68,5 +68,5 @@ print("Nettoyage terminé. Sauvegarde des données nettoyées au format Delta...
 # Création du dossier si il n'existe pas
 Path(OUTPUT_PATH).parent.mkdir(parents=True, exist_ok=True)
 
-# sauvegarde des données nettoyées au format delta
+# Sauvegarde des données nettoyées au format delta
 df.write.format("delta").mode("overwrite").save(OUTPUT_PATH)
