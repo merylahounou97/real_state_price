@@ -3,7 +3,7 @@ from pathlib import Path
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lower, when, to_date
 from delta import configure_spark_with_delta_pip
-
+  
 # ------------------------------ Constantes ------------------------------
 # chemin pour accéder aux données
 FILE_PATH = './src/data/raw/donnees_immobilieres.parquet'

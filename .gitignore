@@ -211,3 +211,6 @@ __marimo__/
 Dockerfile
 
 winutils.exe
+
+# Local data files
+src/data/
