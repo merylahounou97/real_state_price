@@ -23,4 +23,4 @@ RUN pipenv install --deploy --ignore-pipfile --python /usr/local/bin/python3.11
 COPY ./src .
 
 # command to run the application
-CMD ["pipenv", "run", "bash", "-c", "python scripts/scraping.py && python scripts/data_processing_spark.py"]
+CMD ["pipenv", "run", "bash", "-c", "python scripts/scraping.py && python scripts/data_processing_spark.py && python scripts/real_estate_ml.py"]
