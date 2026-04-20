@@ -1,6 +1,5 @@
 # ------------------------------ Importation des bibliothèques ------------------------------
 import matplotlib.pyplot as plt
-
 from pyspark.sql import SparkSession
 from delta import configure_spark_with_delta_pip
 from pyspark.ml import Pipeline
@@ -9,20 +8,19 @@ from pyspark.ml.classification import RandomForestClassifier
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml.clustering import KMeans
 from pathlib import Path
+from pyspark.sql.functions import col
 
 # ------------------------------ Constantes ------------------------------
-# chemin pour accéder aux données
+# Le fichier d'entrée reste en Delta car c'est ta couche "Clean"
 FILE_PATH = "./src/data/clean/donnees_immobilieres_cleaned.delta"
 
-# chemin pour sauvegarder les résultats
-CLASSIFICATION_OUTPUT_PATH = "./src/data/ml/classification/ministere_predictions.delta"
-CLUSTERING_OUTPUT_PATH = "./src/data/ml/clustering/clusters.delta"
+# Nouveaux chemins en .parquet pour Apache Druid
+CLASSIFICATION_OUTPUT_PATH = "./src/data/ml/classification/ministere_predictions.parquet"
+CLUSTERING_OUTPUT_PATH = "./src/data/ml/clustering/clusters.parquet"
 
-# chemin pour sauvegarder les figures
 FIGURES_OUTPUT_PATH = "./src/data/figures/"
 
 # ------------------------------ Application ------------------------------
-# Configuer sparksession pour utiliser delta lake
 builder = (
     SparkSession.builder.appName("RealEstateML")
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
@@ -34,119 +32,76 @@ builder = (
 
 spark = configure_spark_with_delta_pip(builder).getOrCreate()
 
-# Charger les données
+# Charger les données (format Delta en entrée)
 df = spark.read.format("delta").load(FILE_PATH)
 
 # ------------- Classification -------------
-# Sélection des colonnes pertinentes et suppression des lignes avec des valeurs manquantes
 df_ml = df.select("type", "fonction", "region", "dept", "ministere").dropna()
 
-# Indexer pour les variables catégorielles
 categorical_cols = ["type", "fonction", "region", "dept"]
 indexers = [
     StringIndexer(inputCol=col, outputCol=f"{col}_index", handleInvalid="keep")
     for col in categorical_cols
 ]
 
-# Indexer pour la variable cible
-label_indexer = StringIndexer(
-    inputCol="ministere", outputCol="label", handleInvalid="keep"
-)
+label_indexer = StringIndexer(inputCol="ministere", outputCol="label", handleInvalid="keep")
 
-# OneHotEncoder pour les variables catégorielles
 encoder = OneHotEncoder(
     inputCols=[f"{col}_index" for col in categorical_cols],
     outputCols=[f"{col}_vec" for col in categorical_cols],
 )
 
-# Assemblage des features
 assembler = VectorAssembler(
     inputCols=[f"{col}_vec" for col in categorical_cols], outputCol="features"
 )
 
-# Création du modèle de classification
 rf = RandomForestClassifier(featuresCol="features", labelCol="label", numTrees=50)
 
-# Création du pipeline
 pipeline = Pipeline(stages=indexers + [label_indexer, encoder, assembler, rf])
 
-# Split des données en train et test
 train, test = df_ml.randomSplit([0.8, 0.2], seed=29)
-
-# Entraînement du modèle
 model = pipeline.fit(train)
-
-# Prédictions sur le jeu de test
 predictions = model.transform(test)
 
-# Calcul de l'accuracy
-evaluator = MulticlassClassificationEvaluator(
-    labelCol="label", predictionCol="prediction", metricName="accuracy"
+# Sélection et conversion pour Druid
+# Note : probability est un vecteur, on le convertit en string pour Druid
+predictions_to_save = predictions.select(
+    "type", "region", "dept", "ministere", "prediction", 
+    col("probability").cast("string").alias("probability")
 )
 
-# Calcul de l'accuracy
-accuracy = evaluator.evaluate(predictions)
-print(f"Accuracy : {accuracy}")
-
-# Création du dossier si il n'existe pas
+# Sauvegarde en PARQUET
 Path(CLASSIFICATION_OUTPUT_PATH).parent.mkdir(parents=True, exist_ok=True)
+predictions_to_save.write.mode("overwrite").parquet(CLASSIFICATION_OUTPUT_PATH)
 
-# Sélection des colonnes à sauvegarder
-predictions = predictions.select(
-    "type", "region", "dept", "ministere", "prediction", "probability"
-)
-
-# Sauvegarde des prédictions de classification
-predictions.write.format("delta").mode("overwrite").save(CLASSIFICATION_OUTPUT_PATH)
-
-print("Classification terminée et sauvegardée avec succès !")
+print(f"Classification terminée. Sauvegardée en Parquet ici : {CLASSIFICATION_OUTPUT_PATH}")
 
 # ------------- Clustering -------------
-# Sélection des colonnes pertinentes pour le clustering et suppression des lignes avec des valeurs manquantes
-df_cluster = df.select("type", "fonction", "region", "dept", "ministere").dropna()
+df_cluster = df.select("type", "fonction", "region", "dept", "ministere", "date_inventaire").dropna()
 
-# Indexer pour les variables catégorielles
 categorical_cols = ["type", "fonction", "region", "dept", "ministere"]
+indexers = [StringIndexer(inputCol=col, outputCol=f"{col}_index") for col in categorical_cols]
 
-indexers = [
-    StringIndexer(inputCol=col, outputCol=f"{col}_index") for col in categorical_cols
-]
-
-# OneHotEncoder pour les variables catégorielles
 encoder = OneHotEncoder(
     inputCols=[f"{col}_index" for col in categorical_cols],
     outputCols=[f"{col}_vec" for col in categorical_cols],
 )
 
-# Assemblage des features
-assembler = VectorAssembler(
-    inputCols=[f"{col}_vec" for col in categorical_cols], outputCol="features"
-)
+assembler = VectorAssembler(inputCols=[f"{col}_vec" for col in categorical_cols], outputCol="features")
 
-# Création du modèle de clustering
 kmeans = KMeans(k=5, seed=29)
+pipeline_cluster = Pipeline(stages=indexers + [encoder, assembler, kmeans])
+model_cluster = pipeline_cluster.fit(df_cluster)
 
-# Création du pipeline
-pipeline = Pipeline(stages=indexers + [encoder, assembler, kmeans])
+cluster_predictions = model_cluster.transform(df_cluster)
 
-# Entraînement du modèle de clustering
-model = pipeline.fit(df_cluster)
-
-# Prédictions de clustering
-cluster_predictions = model.transform(df_cluster)
-
-# Affichage des prédictions de clustering
-cluster_predictions.select("type", "region", "prediction").show()
-
-# Création du dossier si il n'existe pas
-cluster_predictions = cluster_predictions.select(
-    "type", "region", "dept", "ministere", "prediction"
+# Sélection des colonnes pour Druid (J'ajoute date_inventaire car Druid en a besoin)
+cluster_to_save = cluster_predictions.select(
+    "date_inventaire", "type", "region", "dept", "ministere", "prediction"
 )
 
-# Sauvegarde des prédictions de clustering
+# Sauvegarde en PARQUET
 Path(CLUSTERING_OUTPUT_PATH).parent.mkdir(parents=True, exist_ok=True)
+cluster_to_save.write.mode("overwrite").parquet(CLUSTERING_OUTPUT_PATH)
 
-# Sauvegarde des prédictions de clustering
-cluster_predictions.write.format("delta").mode("overwrite").save(CLUSTERING_OUTPUT_PATH)
-
-print("Clustering terminé et sauvegardé avec succès !")
+print(f"Clustering terminé. Sauvegardé en Parquet ici : {CLUSTERING_OUTPUT_PATH}")
