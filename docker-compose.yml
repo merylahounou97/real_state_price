@@ -1,0 +1,38 @@
+version: "3"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: druid-postgres
+    environment:
+      - POSTGRES_PASSWORD=FoolishPassword
+      - POSTGRES_USER=druid
+      - POSTGRES_DB=metadata
+    volumes:
+      - ./druid_metadata:/var/lib/postgresql/data
+
+  zookeeper:
+    image: zookeeper:3.8
+    container_name: druid-zookeeper
+    environment:
+      - ZOO_MY_ID=1
+
+  druid:
+    image: apache/druid:28.0.1
+    container_name: druid
+    depends_on:
+      - postgres
+      - zookeeper
+    ports:
+      - "8888:8888" 
+      - "8081:8081" 
+      - "8082:8082" 
+    environment:
+      - druid_metadata_storage_type=postgresql
+      - druid_metadata_storage_connector_connectURI=jdbc:postgresql://postgres:5432/metadata
+      - druid_metadata_storage_connector_user=druid
+      - druid_metadata_storage_connector_password=FoolishPassword
+      - druid_zk_service_host=zookeeper
+    volumes:
+      - ./src/data:/opt/druid/var/druid/data
+      - ./druid_segments:/opt/druid/var/druid/segments
