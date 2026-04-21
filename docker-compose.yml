@@ -1,38 +1,87 @@
-version: "3"
-
 services:
   postgres:
     image: postgres:15-alpine
     container_name: druid-postgres
     environment:
-      - POSTGRES_PASSWORD=FoolishPassword
+      - POSTGRES_PASSWORD=Password
       - POSTGRES_USER=druid
       - POSTGRES_DB=metadata
     volumes:
-      - ./druid_metadata:/var/lib/postgresql/data
+      - druid_metadata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "druid"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   zookeeper:
     image: zookeeper:3.8
     container_name: druid-zookeeper
     environment:
       - ZOO_MY_ID=1
+    healthcheck:
+      test: ["CMD", "zkServer.sh", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   druid:
     image: apache/druid:28.0.1
     container_name: druid
+    user: root
     depends_on:
-      - postgres
-      - zookeeper
+      postgres:
+        condition: service_healthy
+      zookeeper:
+        condition: service_healthy
     ports:
-      - "8888:8888" 
-      - "8081:8081" 
-      - "8082:8082" 
-    environment:
-      - druid_metadata_storage_type=postgresql
-      - druid_metadata_storage_connector_connectURI=jdbc:postgresql://postgres:5432/metadata
-      - druid_metadata_storage_connector_user=druid
-      - druid_metadata_storage_connector_password=FoolishPassword
-      - druid_zk_service_host=zookeeper
+      - "8888:8888"
+      - "8081:8081"
+      - "8082:8082"
+      - "8083:8083"
+      - "8090:8090"
+      - "8091:8091"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        ln -sf /bin/env /usr/bin/env
+
+        echo "==> Installation de Perl..."
+        apt-get update -qq && apt-get install -y -qq perl
+
+        echo "==> Copie de la config..."
+        cp /druid-config/common.runtime.properties \
+          /opt/druid/conf/druid/single-server/micro-quickstart/_common/common.runtime.properties
+
+        echo "==> Démarrage de Druid..."
+        cd /opt/druid
+        exec bin/supervise -c conf/supervise/single-server/micro-quickstart.conf
+
+    configs:
+      - source: druid_common_config
+        target: /druid-config/common.runtime.properties
     volumes:
       - ./src/data:/opt/druid/var/druid/data
-      - ./druid_segments:/opt/druid/var/druid/segments
+      - druid_segments:/opt/druid/var/druid/segments
+      - druid_indexing_logs:/opt/druid/var/druid/indexing-logs
+
+configs:
+  druid_common_config:
+    content: |
+      druid.extensions.loadList=["druid-histogram","druid-datasketches","druid-lookups-cached-global","postgresql-metadata-storage"]
+      druid.zk.service.host=zookeeper
+      druid.zk.paths.base=/druid
+      druid.metadata.storage.type=postgresql
+      druid.metadata.storage.connector.connectURI=jdbc:postgresql://postgres:5432/metadata
+      druid.metadata.storage.connector.user=druid
+      druid.metadata.storage.connector.password=Password
+      druid.storage.type=local
+      druid.storage.storageDirectory=/opt/druid/var/druid/segments
+      druid.indexer.logs.type=file
+      druid.indexer.logs.directory=/opt/druid/var/druid/indexing-logs
+      druid.emitter=noop
+
+volumes:
+  druid_metadata:
+  druid_segments:
+  druid_indexing_logs:
