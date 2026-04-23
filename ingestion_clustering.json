@@ -1,0 +1,44 @@
+{
+  "type": "index_parallel",
+  "spec": {
+    "ioConfig": {
+      "type": "index_parallel",
+      "inputSource": {
+        "type": "local",
+        "baseDir": "/opt/druid/var/druid/data/ml/clustering/",
+        "filter": "*.parquet"
+      },
+      "inputFormat": {
+        "type": "parquet"
+      }
+    },
+    "dataSchema": {
+      "dataSource": "real_estate_clusters",
+      "timestampSpec": {
+        "column": "date_inventaire",
+        "format": "auto"
+      },
+      "dimensionsSpec": {
+        "dimensions": [
+          "type",
+          "region",
+          "dept",
+          "ministere",
+          { "type": "long", "name": "prediction" }
+        ]
+      },
+      "granularitySpec": {
+        "type": "uniform",
+        "segmentGranularity": "YEAR",
+        "queryGranularity": "NONE",
+        "rollup": false
+      }
+    },
+    "tuningConfig": {
+      "type": "index_parallel",
+      "partitionsSpec": {
+        "type": "dynamic"
+      }
+    }
+  }
+}

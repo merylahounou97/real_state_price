@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -6,10 +8,11 @@ services:
       - POSTGRES_PASSWORD=Password
       - POSTGRES_USER=druid
       - POSTGRES_DB=metadata
+      - POSTGRES_MULTIPLE_DATABASES=superset
     volumes:
       - druid_metadata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "druid"]
+      test: ["CMD", "pg_isready", "-U", "druid", "-d", "metadata"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -38,25 +41,21 @@ services:
       - "8888:8888"
       - "8081:8081"
       - "8082:8082"
-      - "8083:8083"
-      - "8090:8090"
-      - "8091:8091"
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        ln -sf /bin/env /usr/bin/env
-
-        echo "==> Installation de Perl..."
-        apt-get update -qq && apt-get install -y -qq perl
-
-        echo "==> Copie de la config..."
-        cp /druid-config/common.runtime.properties \
-          /opt/druid/conf/druid/single-server/micro-quickstart/_common/common.runtime.properties
-
-        echo "==> Démarrage de Druid..."
+        echo "==> Configuration de Druid..."
+        cp /druid-config/common.runtime.properties /opt/druid/conf/druid/single-server/micro-quickstart/_common/common.runtime.properties
+        mkdir -p /opt/druid/var/druid/indexing-logs /opt/druid/var/druid/segments /opt/druid/var/sv
         cd /opt/druid
-        exec bin/supervise -c conf/supervise/single-server/micro-quickstart.conf
-
+        bin/run-druid coordinator-overlord conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/coordinator-overlord.log 2>&1 &
+        sleep 5
+        bin/run-druid broker conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/broker.log 2>&1 &
+        bin/run-druid router conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/router.log 2>&1 &
+        bin/run-druid historical conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/historical.log 2>&1 &
+        sleep 3
+        bin/run-druid middleManager conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/middleManager.log 2>&1 &
+        tail -f /opt/druid/var/sv/coordinator-overlord.log
     configs:
       - source: druid_common_config
         target: /druid-config/common.runtime.properties
@@ -65,10 +64,27 @@ services:
       - druid_segments:/opt/druid/var/druid/segments
       - druid_indexing_logs:/opt/druid/var/druid/indexing-logs
 
+  superset:
+    image: apache/superset:latest
+    container_name: superset
+    user: root
+    ports:
+      - "8088:8088"
+    environment:
+      - SUPERSET_SECRET_KEY=votre_cle_secrete_ultra_secure_123
+      - SQLALCHEMY_DATABASE_URI=postgresql://druid:Password@postgres:5432/superset
+    volumes:
+      - superset_home:/app/superset_home
+    depends_on:
+      postgres:
+        condition: service_healthy
+      druid:
+        condition: service_started
+
 configs:
   druid_common_config:
     content: |
-      druid.extensions.loadList=["druid-histogram","druid-datasketches","druid-lookups-cached-global","postgresql-metadata-storage"]
+      druid.extensions.loadList=["druid-histogram","druid-datasketches","druid-lookups-cached-global","postgresql-metadata-storage","druid-parquet-extensions","druid-avro-extensions"]
       druid.zk.service.host=zookeeper
       druid.zk.paths.base=/druid
       druid.metadata.storage.type=postgresql
@@ -85,3 +101,4 @@ volumes:
   druid_metadata:
   druid_segments:
   druid_indexing_logs:
+  superset_home:
