@@ -4,6 +4,13 @@ from airflow.providers.http.operators.http import SimpleHttpOperator
 from datetime import datetime, timedelta
 import json
 
+# =========================================================
+# CONFIGURATION DES CHEMINS (À AJUSTER)
+# =========================================================
+# Remplace par le chemin absolu vers ton dossier 'src/data' sur Windows
+# Note: Utilise des slashs '/' même sur Windows pour Docker
+LOCAL_DATA_DIR = "/c/Users/ahoun/OneDrive/Documents/Documents/real_state_price/src/data"
+
 # Configuration par défaut
 default_args = {
     'owner': 'admin',
@@ -13,7 +20,7 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-
+# Spec d'ingestion pour Druid
 druid_ingestion_spec = {
     "type": "index_parallel",
     "spec": {
@@ -41,16 +48,18 @@ druid_ingestion_spec = {
     }
 }
 
+# Définition du DAG
 with DAG(
     'pipeline_immobilier_etat',
     default_args=default_args,
     description='Pipeline complet : Scraping -> Spark -> ML -> Druid',
     schedule_interval=None, 
-    start_date=datetime(2024, 1, 1),
+    start_date=datetime(2026, 4, 1),
     catchup=False,
 ) as dag:
 
     # 1. SCRAPING
+    # Cette étape crée le fichier parquet initial
     scraping = DockerOperator(
         task_id='scraping_data',
         image='immobilier-app:latest',
@@ -58,27 +67,43 @@ with DAG(
         docker_url='unix://var/run/docker.sock',
         network_mode='bridge',
         auto_remove=True,
-        mounts=[{"source": "/votre/chemin/vers/src/data", "target": "/src/data", "type": "bind"}]
+        mounts=[{
+            "source": LOCAL_DATA_DIR, 
+            "target": "/src/data", 
+            "type": "bind"
+        }]
     )
 
     # 2. SPARK PROCESSING
+    # Cette étape lit le parquet et le nettoie
     spark_clean = DockerOperator(
         task_id='spark_processing',
         image='immobilier-app:latest',
         command='pipenv run python scripts/data_processing_spark.py',
         docker_url='unix://var/run/docker.sock',
         network_mode='bridge',
-        auto_remove=True
+        auto_remove=True,
+        mounts=[{
+            "source": LOCAL_DATA_DIR, 
+            "target": "/src/data", 
+            "type": "bind"
+        }]
     )
 
     # 3. MACHINE LEARNING
+    # Cette étape effectue le clustering
     ml_clustering = DockerOperator(
         task_id='ml_clustering',
         image='immobilier-app:latest',
         command='pipenv run python scripts/real_estate_ml.py',
         docker_url='unix://var/run/docker.sock',
         network_mode='bridge',
-        auto_remove=True
+        auto_remove=True,
+        mounts=[{
+            "source": LOCAL_DATA_DIR, 
+            "target": "/src/data", 
+            "type": "bind"
+        }]
     )
 
     # 4. INGESTION DRUID (Via API)
@@ -91,5 +116,5 @@ with DAG(
         headers={"Content-Type": "application/json"},
     )
 
-    # L'ordre d'exécution
+    # Ordre d'exécution
     scraping >> spark_clean >> ml_clustering >> index_in_druid

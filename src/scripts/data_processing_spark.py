@@ -6,10 +6,10 @@ from delta import configure_spark_with_delta_pip
 
 # ------------------------------ Constantes ------------------------------
 # chemin pour accéder aux données
-FILE_PATH = "./src/data/raw/donnees_immobilieres.parquet"
+FILE_PATH = "/src/data/raw/donnees_immobilieres.parquet"
 
 # chemin pour sauvegarder les données nettoyées
-OUTPUT_PATH = "./src/data/clean/donnees_immobilieres_cleaned.delta"
+OUTPUT_PATH = "/src/data/clean/donnees_immobilieres_cleaned.delta"
 
 # ------------------------------ Application ------------------------------
 # initialisation SparkSession

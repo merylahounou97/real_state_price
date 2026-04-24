@@ -12,13 +12,13 @@ from pyspark.sql.functions import col
 
 # ------------------------------ Constantes ------------------------------
 # Le fichier d'entrée reste en Delta car c'est ta couche "Clean"
-FILE_PATH = "./src/data/clean/donnees_immobilieres_cleaned.delta"
+FILE_PATH = "/src/data/clean/donnees_immobilieres_cleaned.delta"
 
 # Nouveaux chemins en .parquet pour Apache Druid
-CLASSIFICATION_OUTPUT_PATH = "./src/data/ml/classification/ministere_predictions.parquet"
-CLUSTERING_OUTPUT_PATH = "./src/data/ml/clustering/clusters.parquet"
+CLASSIFICATION_OUTPUT_PATH = "/src/data/ml/classification/ministere_predictions.parquet"
+CLUSTERING_OUTPUT_PATH = "/src/data/ml/clustering/clusters.parquet"
 
-FIGURES_OUTPUT_PATH = "./src/data/figures/"
+FIGURES_OUTPUT_PATH = "/src/data/figures/"
 
 # ------------------------------ Application ------------------------------
 builder = (
