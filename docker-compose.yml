@@ -1,6 +1,5 @@
-version: "3.9"
-
 services:
+  # --- INFRASTRUCTURE ---
   postgres:
     image: postgres:15-alpine
     container_name: druid-postgres
@@ -8,9 +7,6 @@ services:
       - POSTGRES_PASSWORD=Password
       - POSTGRES_USER=druid
       - POSTGRES_DB=metadata
-      - POSTGRES_MULTIPLE_DATABASES=superset
-    volumes:
-      - druid_metadata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "druid", "-d", "metadata"]
       interval: 5s
@@ -20,85 +16,51 @@ services:
   zookeeper:
     image: zookeeper:3.8
     container_name: druid-zookeeper
-    environment:
-      - ZOO_MY_ID=1
     healthcheck:
       test: ["CMD", "zkServer.sh", "status"]
       interval: 5s
-      timeout: 5s
       retries: 10
 
+  # --- DATA ENGINE (DRUID) ---
   druid:
     image: apache/druid:28.0.1
     container_name: druid
-    user: root
     depends_on:
-      postgres:
-        condition: service_healthy
-      zookeeper:
-        condition: service_healthy
+      postgres: { condition: service_healthy }
+      zookeeper: { condition: service_healthy }
     ports:
       - "8888:8888"
-      - "8081:8081"
-      - "8082:8082"
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        echo "==> Configuration de Druid..."
-        cp /druid-config/common.runtime.properties /opt/druid/conf/druid/single-server/micro-quickstart/_common/common.runtime.properties
-        mkdir -p /opt/druid/var/druid/indexing-logs /opt/druid/var/druid/segments /opt/druid/var/sv
-        cd /opt/druid
-        bin/run-druid coordinator-overlord conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/coordinator-overlord.log 2>&1 &
-        sleep 5
-        bin/run-druid broker conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/broker.log 2>&1 &
-        bin/run-druid router conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/router.log 2>&1 &
-        bin/run-druid historical conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/historical.log 2>&1 &
-        sleep 3
-        bin/run-druid middleManager conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/middleManager.log 2>&1 &
-        tail -f /opt/druid/var/sv/coordinator-overlord.log
-    configs:
-      - source: druid_common_config
-        target: /druid-config/common.runtime.properties
     volumes:
       - ./src/data:/opt/druid/var/druid/data
-      - druid_segments:/opt/druid/var/druid/segments
-      - druid_indexing_logs:/opt/druid/var/druid/indexing-logs
+      - ./common.runtime.properties:/opt/druid/conf/druid/single-server/micro-quickstart/_common/common.runtime.properties
 
+  # --- VISUALIZATION (SUPERSET) ---
   superset:
     image: apache/superset:latest
     container_name: superset
-    user: root
+    environment:
+      - SUPERSET_SECRET_KEY=votre_cle_secrete_123
+      - SQLALCHEMY_DATABASE_URI=postgresql://druid:Password@postgres:5432/superset
     ports:
       - "8088:8088"
-    environment:
-      - SUPERSET_SECRET_KEY=votre_cle_secrete_ultra_secure_123
-      - SQLALCHEMY_DATABASE_URI=postgresql://druid:Password@postgres:5432/superset
-    volumes:
-      - superset_home:/app/superset_home
     depends_on:
-      postgres:
-        condition: service_healthy
-      druid:
-        condition: service_started
+      postgres: { condition: service_healthy }
 
-configs:
-  druid_common_config:
-    content: |
-      druid.extensions.loadList=["druid-histogram","druid-datasketches","druid-lookups-cached-global","postgresql-metadata-storage","druid-parquet-extensions","druid-avro-extensions"]
-      druid.zk.service.host=zookeeper
-      druid.zk.paths.base=/druid
-      druid.metadata.storage.type=postgresql
-      druid.metadata.storage.connector.connectURI=jdbc:postgresql://postgres:5432/metadata
-      druid.metadata.storage.connector.user=druid
-      druid.metadata.storage.connector.password=Password
-      druid.storage.type=local
-      druid.storage.storageDirectory=/opt/druid/var/druid/segments
-      druid.indexer.logs.type=file
-      druid.indexer.logs.directory=/opt/druid/var/druid/indexing-logs
-      druid.emitter=noop
+  # --- ORCHESTRATION (AIRFLOW) ---
+  airflow:
+    image: apache/airflow:2.7.1-python3.11
+    container_name: airflow
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://druid:Password@postgres:5432/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock # Pour que Airflow lance l'image 'immobilier-app'
+    depends_on:
+      postgres: { condition: service_healthy }
 
 volumes:
   druid_metadata:
-  druid_segments:
-  druid_indexing_logs:
-  superset_home:

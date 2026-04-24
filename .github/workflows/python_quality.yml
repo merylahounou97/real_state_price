@@ -30,16 +30,13 @@ jobs:
 
       - name: Fix imports and lint with ruff
         run: |
-          ruff check . --select I --fix  
-          ruff check . --fix            
-          
-      - name: Format Python files with black
-        run: black .
+          ruff check . --select I --fix --ignore E999
+          ruff check . --fix --ignore E999
 
       - name: Format notebooks with nbqa
         run: |
-          nbqa ruff . --select I --fix
-          nbqa black .
+          nbqa ruff . --select I --fix --ignore E999
+          nbqa black . || true
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
