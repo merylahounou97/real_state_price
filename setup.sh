@@ -31,6 +31,13 @@ docker exec -i superset superset init
 echo "🐳 Docker : Permission socket..."
 docker exec -i airflow chmod 666 /var/run/docker.sock
 
+# 5. Création de la connexion Druid dans Airflow
+echo "🔗 Airflow : Création connexion Druid..."
+docker exec -i airflow airflow connections add druid_api \
+    --conn-type http \
+    --conn-host http://druid \
+    --conn-port 8081 || echo "Connexion druid_api déjà existante"
+
 echo "-------------------------------------------------------"
 echo "✅ SETUP TERMINÉ ET PRÊT !"
 echo "-------------------------------------------------------"
