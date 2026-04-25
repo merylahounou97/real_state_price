@@ -4,11 +4,9 @@ from airflow.providers.http.operators.http import SimpleHttpOperator
 from datetime import datetime, timedelta
 import json
 
-# =========================================================
-# CONFIGURATION DES CHEMINS (À AJUSTER)
-# =========================================================
-# Remplace par le chemin absolu vers ton dossier 'src/data' sur Windows
-# Note: Utilise des slashs '/' même sur Windows pour Docker
+
+# CONFIGURATION DES CHEMINS 
+
 LOCAL_DATA_DIR = "/c/Users/ahoun/OneDrive/Documents/Documents/real_state_price/src/data"
 
 # Configuration par défaut
@@ -39,6 +37,9 @@ druid_ingestion_spec = {
             "dimensionsSpec": {
                 "dimensions": ["type", "region", "dept", "ministere", {"type": "long", "name": "prediction"}]
             },
+            "metricsSpec": [
+                {"type": "longSum", "name": "total_biens", "fieldName": "quantite"}
+            ],
             "granularitySpec": {
                 "type": "uniform",
                 "segmentGranularity": "YEAR",

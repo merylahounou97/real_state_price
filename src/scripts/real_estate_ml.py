@@ -8,7 +8,7 @@ from pyspark.ml.classification import RandomForestClassifier
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml.clustering import KMeans
 from pathlib import Path
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, lit
 
 # ------------------------------ Constantes ------------------------------
 # Le fichier d'entrée reste en Delta car c'est ta couche "Clean"
@@ -97,7 +97,7 @@ cluster_predictions = model_cluster.transform(df_cluster)
 
 # Sélection des colonnes pour Druid (J'ajoute date_inventaire car Druid en a besoin)
 cluster_to_save = cluster_predictions.select(
-    "date_inventaire", "type", "region", "dept", "ministere", "prediction"
+    "date_inventaire", "type", "region", "dept", "ministere", "prediction", lit(1).alias("quantite")
 )
 
 # Sauvegarde en PARQUET

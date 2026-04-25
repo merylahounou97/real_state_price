@@ -1,6 +1,6 @@
 # 🏡 Real Estate Prices ETL
 
-Un projet Data Engineering complet qui couvre toutes les étapes d’un pipeline moderne de traitement de données, depuis le **web scraping** jusqu’à la **visualisation interactive des prédictions de prix immobiliers**.
+Un projet Data Engineering complet qui couvre toutes les étapes d’un pipeline moderne de traitement de données, depuis le **web scraping** jusqu’à la **visualisation interactive de la classification et du clustering des biens immobiliers**.
 
 Ce projet a pour double objectif :
 - 🚀 **Monter en compétences** sur les outils les plus utilisés en ingénierie des données.
