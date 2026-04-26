@@ -1,26 +1,22 @@
-# Dockerfile for a Python application
 FROM python:3.11-slim
 
-# Install Java
-RUN apt-get update && apt-get install -y default-jdk && apt-get clean
+# Install Java & Nettoyage
+RUN apt-get update && apt-get install -y default-jdk curl && apt-get clean
 
 ENV JAVA_HOME=/usr/lib/jvm/default-java
 ENV PATH=$JAVA_HOME/bin:$PATH
 
-# download & install pipenv
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir pipenv
+# Pipenv & Pyspark
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir pipenv pyspark delta-spark
 
-# working directory
+# Pre-download des packages Delta pour gagner du temps au runtime
+RUN python3 -c "from pyspark.sql import SparkSession; from delta import configure_spark_with_delta_pip; builder = SparkSession.builder.appName('warmup'); configure_spark_with_delta_pip(builder).getOrCreate()"
+
 WORKDIR /src
-
-# copy Pipfile and Pipfile.lock
 COPY Pipfile Pipfile.lock ./
-
-# install dependencies (use system python directly)
 RUN pipenv install --deploy --ignore-pipfile --python /usr/local/bin/python3.11
 
-# copy the rest of the application code
 COPY ./src .
 
-# command to run the application
 CMD ["pipenv", "run", "bash", "-c", "python scripts/scraping.py && python scripts/data_processing_spark.py && python scripts/real_estate_ml.py"]

@@ -36,7 +36,7 @@ df = df_raw.dropDuplicates(["id"])
 # filtrage pour ne garder que les biens en France
 df = df.filter(col("pays") == "France")
 
-# conversion de la colonne "date_invnetaire" en type date
+# conversion de la colonne "date_inventaire" en type date
 df = df.withColumn("date_inventaire", to_date(col("date_inventaire"), "yyyy-MM"))
 
 # mise en minuscule de la colonne "ville" pour uniformiser les données

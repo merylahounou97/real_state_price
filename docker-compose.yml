@@ -1,8 +1,11 @@
 services:
-  # --- INFRASTRUCTURE ---
+  # Infrastructure
+  # Postgres pour le stockage de la metadata de Druid, ainsi que pour Superset et Airflow
   postgres:
     image: postgres:15-alpine
     container_name: druid-postgres
+    networks:
+      - data-stack
     environment:
       - POSTGRES_PASSWORD=Password
       - POSTGRES_USER=druid
@@ -15,11 +18,14 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 1G
 
+  # Zookeeper pour la coordination de Druid
   zookeeper:
     image: zookeeper:3.8
     container_name: druid-zookeeper
+    networks:
+      - data-stack
     healthcheck:
       test: [ "CMD", "zkServer.sh", "status" ]
       interval: 5s
@@ -29,11 +35,13 @@ services:
         limits:
           memory: 256M
 
-  # --- DATA ENGINE (DRUID) ---
+ # Druid en mode "Eco" pour une utilisation légère
   druid:
     image: apache/druid:28.0.1
     container_name: druid
     user: root
+    networks:
+      - data-stack
     environment:
       - JAVA_OPTS=-Xms512m -Xmx512m
       - DRUID_LOG_LEVEL=error
@@ -53,9 +61,8 @@ services:
         echo "==> Configuration de Druid (Mode Eco)..."
         mkdir -p /opt/druid/var/druid/indexing-logs /opt/druid/var/druid/segments /opt/druid/var/sv
         cd /opt/druid
-        # On limite la mémoire de chaque process manuellement
         bin/run-druid coordinator-overlord conf/druid/single-server/micro-quickstart -Ddruid.indexer.runner.javaOpts="-Xmx256m" >> /opt/druid/var/sv/coordinator-overlord.log 2>&1 &
-        sleep 5
+        sleep 20
         bin/run-druid broker conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/broker.log 2>&1 &
         bin/run-druid router conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/router.log 2>&1 &
         bin/run-druid historical conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/historical.log 2>&1 &
@@ -69,12 +76,14 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2500M 
+          memory: 3000M
 
-  # --- VISUALIZATION (SUPERSET) ---
+ # Superset pour la visualisation des données
   superset:
     image: apache/superset:latest
     container_name: superset
+    networks:
+      - data-stack
     environment:
       - SUPERSET_SECRET_KEY=votre_cle_secrete_123
       - SQLALCHEMY_DATABASE_URI=postgresql://druid:Password@postgres:5432/superset
@@ -87,23 +96,24 @@ services:
         limits:
           memory: 1G
 
-  # --- ORCHESTRATION (AIRFLOW) ---
+ # Airflow pour l'orchestration des tâches ETL et de la pipeline de données
   airflow:
     image: apache/airflow:2.7.1-python3.11
     container_name: airflow
     user: root
+    networks:
+      - data-stack
     environment:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://druid:Password@postgres:5432/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__WEBSERVER__SECRET_KEY=ma_super_cle_secrete_987
+      - AIRFLOW__CORE__KILLED_TASK_CLEANUP_TIME=60
       - _AIRFLOW_DB_UPGRADE=true
       - _AIRFLOW_WWW_USER_CREATE=true
       - _AIRFLOW_WWW_USER_USERNAME=admin
       - _AIRFLOW_WWW_USER_PASSWORD=admin
       - _AIRFLOW_WWW_USER_ROLE=Admin
-      - _AIRFLOW_WWW_USER_EMAIL=admin@fab.org
-      - AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL=30 
     command: standalone
     ports:
       - "8080:8080"
@@ -117,7 +127,6 @@ services:
         limits:
           memory: 1500M
 
-# --- CONFIGURATION DRUID  ---
 configs:
   druid_common_config:
     content: |
@@ -133,10 +142,13 @@ configs:
       druid.indexer.logs.type=file
       druid.indexer.logs.directory=/opt/druid/var/druid/indexing-logs
       druid.emitter=noop
-      # Optimisation de la mémoire pour le micro-quickstart
       druid.server.http.numThreads=10
       druid.processing.buffer.sizeBytes=100000000
       druid.processing.numThreads=1
+
+networks:
+  data-stack:
+    driver: bridge
 
 volumes:
   druid_metadata:
