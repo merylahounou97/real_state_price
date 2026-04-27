@@ -1,0 +1,12 @@
+FROM apache/superset:latest
+
+USER root
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN /app/.venv/bin/python -m ensurepip --upgrade || true
+RUN /app/.venv/bin/python -m pip install --no-cache-dir pydruid
+
+USER superset

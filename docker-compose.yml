@@ -1,6 +1,4 @@
 services:
-  # Infrastructure
-  # Postgres pour le stockage de la metadata de Druid, ainsi que pour Superset et Airflow
   postgres:
     image: postgres:15-alpine
     container_name: druid-postgres
@@ -18,14 +16,15 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 384M
 
-  # Zookeeper pour la coordination de Druid
   zookeeper:
     image: zookeeper:3.8
     container_name: druid-zookeeper
     networks:
       - data-stack
+    environment:
+      - JVMFLAGS=-Xms64m -Xmx128m
     healthcheck:
       test: [ "CMD", "zkServer.sh", "status" ]
       interval: 5s
@@ -33,9 +32,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 192M
 
- # Druid en mode "Eco" pour une utilisation légère
   druid:
     image: apache/druid:28.0.1
     container_name: druid
@@ -43,11 +41,11 @@ services:
     networks:
       - data-stack
     environment:
-      - JAVA_OPTS=-Xms512m -Xmx512m
+      - JAVA_OPTS=-Xms768m -Xmx768m
       - DRUID_LOG_LEVEL=error
     depends_on:
-      postgres: { condition: service_healthy }
-      zookeeper: { condition: service_healthy }
+      postgres: {condition: service_healthy}
+      zookeeper: {condition: service_healthy}
     ports:
       - "8888:8888"
       - "8081:8081"
@@ -55,22 +53,10 @@ services:
     configs:
       - source: druid_common_config
         target: /opt/druid/conf/druid/single-server/micro-quickstart/_common/common.runtime.properties
-    entrypoint: [ "/bin/bash", "-c" ]
-    command:
-      - |
-        echo "==> Configuration de Druid (Mode Eco)..."
-        mkdir -p /opt/druid/var/druid/indexing-logs /opt/druid/var/druid/segments /opt/druid/var/sv
-        cd /opt/druid
-        bin/run-druid coordinator-overlord conf/druid/single-server/micro-quickstart -Ddruid.indexer.runner.javaOpts="-Xmx256m" >> /opt/druid/var/sv/coordinator-overlord.log 2>&1 &
-        sleep 20
-        bin/run-druid broker conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/broker.log 2>&1 &
-        bin/run-druid router conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/router.log 2>&1 &
-        bin/run-druid historical conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/historical.log 2>&1 &
-        sleep 3
-        bin/run-druid middleManager conf/druid/single-server/micro-quickstart >> /opt/druid/var/sv/middleManager.log 2>&1 &
-        tail -f /opt/druid/var/sv/coordinator-overlord.log
+    entrypoint: ["/bin/bash", "/opt/druid/start-druid.sh"] 
     volumes:
       - ./src/data:/opt/druid/var/druid/data
+      - ./start-druid.sh:/opt/druid/start-druid.sh  
       - druid_segments:/opt/druid/var/druid/segments
       - druid_indexing_logs:/opt/druid/var/druid/indexing-logs
     deploy:
@@ -78,9 +64,10 @@ services:
         limits:
           memory: 3000M
 
- # Superset pour la visualisation des données
   superset:
-    image: apache/superset:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.superset
     container_name: superset
     networks:
       - data-stack
@@ -91,12 +78,14 @@ services:
       - "8088:8088"
     depends_on:
       postgres: { condition: service_healthy }
+      druid: { condition: service_started }
+    profiles:
+      - viz
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 1024M
 
- # Airflow pour l'orchestration des tâches ETL et de la pipeline de données
   airflow:
     image: apache/airflow:2.7.1-python3.11
     container_name: airflow
@@ -109,6 +98,12 @@ services:
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__WEBSERVER__SECRET_KEY=ma_super_cle_secrete_987
       - AIRFLOW__CORE__KILLED_TASK_CLEANUP_TIME=60
+      - AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT=120
+      - AIRFLOW__WEBSERVER__WORKER_REFRESH_INTERVAL=300
+      - AIRFLOW__WEBSERVER__WEB_SERVER_WORKER_TIMEOUT=300
+      - AIRFLOW__SCHEDULER__SCHEDULER_HEARTBEAT_SEC=60
+      - AIRFLOW__SCHEDULER__JOB_HEARTBEAT_SEC=30
+      - AIRFLOW__SCHEDULER__TASK_ZOMBIE_DETECTION_THRESHOLD=600
       - _AIRFLOW_DB_UPGRADE=true
       - _AIRFLOW_WWW_USER_CREATE=true
       - _AIRFLOW_WWW_USER_USERNAME=admin
@@ -125,7 +120,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1500M
+          memory: 2000M
 
 configs:
   druid_common_config:
@@ -142,8 +137,8 @@ configs:
       druid.indexer.logs.type=file
       druid.indexer.logs.directory=/opt/druid/var/druid/indexing-logs
       druid.emitter=noop
-      druid.server.http.numThreads=10
-      druid.processing.buffer.sizeBytes=100000000
+      druid.server.http.numThreads=6
+      druid.processing.buffer.sizeBytes=67108864
       druid.processing.numThreads=1
 
 networks:

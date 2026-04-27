@@ -8,10 +8,9 @@ from pyspark.ml.classification import RandomForestClassifier
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml.clustering import KMeans
 from pathlib import Path
-from pyspark.sql.functions import col, lit
+from pyspark.sql.functions import col, lit, lpad
 
 # ------------------------------ Constantes ------------------------------
-# Le fichier d'entrée reste en Delta car c'est ta couche "Clean"
 FILE_PATH = "/src/data/clean/donnees_immobilieres_cleaned.delta"
 
 # Nouveaux chemins en .parquet pour Apache Druid
@@ -64,7 +63,6 @@ model = pipeline.fit(train)
 predictions = model.transform(test)
 
 # Sélection et conversion pour Druid
-# Note : probability est un vecteur, on le convertit en string pour Druid
 predictions_to_save = predictions.select(
     "type", "region", "dept", "ministere", "prediction", 
     col("probability").cast("string").alias("probability")
@@ -80,28 +78,35 @@ print(f"Classification terminée. Sauvegardée en Parquet ici : {CLASSIFICATION_
 df_cluster = df.select("type", "fonction", "region", "dept", "ministere", "date_inventaire").dropna()
 
 categorical_cols = ["type", "fonction", "region", "dept", "ministere"]
-indexers = [StringIndexer(inputCol=col, outputCol=f"{col}_index") for col in categorical_cols]
+indexers = [StringIndexer(inputCol=c, outputCol=f"{c}_index", handleInvalid="keep") for c in categorical_cols]
 
 encoder = OneHotEncoder(
-    inputCols=[f"{col}_index" for col in categorical_cols],
-    outputCols=[f"{col}_vec" for col in categorical_cols],
+    inputCols=[f"{c}_index" for c in categorical_cols],
+    outputCols=[f"{c}_vec" for c in categorical_cols],
 )
 
-assembler = VectorAssembler(inputCols=[f"{col}_vec" for col in categorical_cols], outputCol="features")
+assembler = VectorAssembler(inputCols=[f"{c}_vec" for c in categorical_cols], outputCol="features")
 
-kmeans = KMeans(k=5, seed=29)
+kmeans = KMeans(k=5, seed=29, predictionCol="prediction")
 pipeline_cluster = Pipeline(stages=indexers + [encoder, assembler, kmeans])
 model_cluster = pipeline_cluster.fit(df_cluster)
 
 cluster_predictions = model_cluster.transform(df_cluster)
 
-# Sélection des colonnes pour Druid (J'ajoute date_inventaire car Druid en a besoin)
+
 cluster_to_save = cluster_predictions.select(
-    "date_inventaire", "type", "region", "dept", "ministere", "prediction", lit(1).alias("quantite")
+    "date_inventaire",
+    "type",
+    "fonction",       
+    "region",
+    lpad(col("dept"), 2, "0").alias("dept"), 
+    "ministere",
+    "prediction",    
+    lit(1).alias("quantite") 
 )
 
 # Sauvegarde en PARQUET
 Path(CLUSTERING_OUTPUT_PATH).parent.mkdir(parents=True, exist_ok=True)
 cluster_to_save.write.mode("overwrite").parquet(CLUSTERING_OUTPUT_PATH)
 
-print(f"Clustering terminé. Sauvegardé en Parquet ici : {CLUSTERING_OUTPUT_PATH}")
+print(f"Clustering terminé. {cluster_to_save.count()} lignes sauvegardées pour Druid.")
