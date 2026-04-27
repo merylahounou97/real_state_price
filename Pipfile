@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pyspark = "*"
+delta-spark = "*"
+pytz = "*"
+numpy = "*"
+matplotlib = "*"
+geopandas = "*"
+requests = "*"
+pandas = "*"
+pyarrow = "*"
+
+[dev-packages]
+ipykernel = "*"
+
+[requires]
+python_version = "3.11"
