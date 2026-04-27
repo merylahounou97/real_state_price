@@ -54,3 +54,147 @@ L'ensemble de l'infrastructure est déployé de manière isolée via **Docker Co
 | **Orchestration**  | Apache Airflow             | Orchestration des tâches ETL/ML |
 | **Conteneurisation** | Docker & Docker Compose    | Déploiement local multi-service |
 | **Visualisation**  | Apache Superset            | Dashboards interactifs open-source |
+
+
+# 🚀 Lancer l'application
+
+## 📦 Prérequis
+
+- Docker
+- Docker Compose
+
+---
+
+## 🐳 1. Build de l'image applicative
+
+```bash
+docker build -t immobilier-app:latest .
+```
+
+---
+
+## ⚙️ 2. Initialisation de la stack
+
+```bash
+bash setup.sh
+```
+
+### 🔧 Ce que fait le script :
+
+- Démarre PostgreSQL, Zookeeper, Druid et Airflow
+- Crée les bases `superset` et `airflow`
+- Configure Airflow (Docker socket)
+- Attend que Druid (Overlord) soit prêt
+
+### 🔗 Accès aux services
+
+| Service | URL | Login |
+|---------|-----|-------|
+| Airflow | http://localhost:8080 | admin / admin |
+| Druid   | http://localhost:8888 | — |
+
+---
+
+## 🔄 3. Lancer le pipeline Airflow
+
+1. Ouvrir Airflow :
+
+```
+http://localhost:8080
+```
+
+2. Activer le DAG :
+
+```
+immobilier_pipeline.py
+```
+
+3. Lancer le DAG manuellement via l'interface
+
+### 📊 Étapes du pipeline :
+
+- Scraping
+- Nettoyage Spark
+- Transformation Delta Lake
+- Clustering / Classification
+- Ingestion Druid
+- Vérification de l'ingestion
+
+---
+
+## 📊 4. Vérifier les données dans Druid
+
+```bash
+curl http://localhost:8081/druid/coordinator/v1/datasources
+```
+
+**Résultat attendu :**
+
+```json
+["real_estate_clusters"]
+```
+
+---
+
+## 📊 5. Lancer Superset
+
+```bash
+bash start_superset.sh
+```
+
+### 🔗 Accès Superset
+
+```
+http://localhost:8088
+```
+
+**Login :**
+
+```
+admin / admin
+```
+
+---
+
+## 🔌 6. Connecter Druid à Superset
+
+Dans Superset, naviguer vers :
+
+```
+Settings → Database Connections → + Database
+```
+
+Utiliser l'URI suivante :
+
+```
+druid://druid:8082/druid/v2/sql
+```
+
+Puis :
+
+- ✅ Tester la connexion
+- 💾 Sauvegarder
+
+---
+
+## 📈 7. Créer les visualisations
+
+Créer un dataset à partir de :
+
+```
+real_estate_clusters
+```
+
+Vous pouvez créer vos graphiques maintenant
+
+## 🧹 Arrêter la stack
+
+```bash
+docker compose down
+```
+
+Avec suppression des volumes :
+
+```bash
+docker compose down -v
+```

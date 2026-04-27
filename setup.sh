@@ -20,7 +20,7 @@ docker exec -i druid-postgres psql -U druid -d metadata -c "CREATE DATABASE airf
 echo "🐳 Docker : Permission socket..."
 docker exec -i airflow chmod 666 /var/run/docker.sock
 
-# 4. Attente spécifique pour l'Overlord Druid (60s de sleep dans le command + marge)
+# 4. Attente spécifique pour l'Overlord Druid 
 echo "⏳ Attente de l'Overlord Druid (90s)..."
 sleep 90
 
