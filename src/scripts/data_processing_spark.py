@@ -102,7 +102,6 @@ df = df.fillna({
     "region": "inconnu",
     "dept": "inconnu",
     "ministere": "inconnu",
-    "quantite": 0,
 })
 
 print("Nombre d'enregistrements après nettoyage :", df.count())

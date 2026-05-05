@@ -44,8 +44,8 @@ services:
       - JAVA_OPTS=-Xms768m -Xmx768m
       - DRUID_LOG_LEVEL=error
     depends_on:
-      postgres: {condition: service_healthy}
-      zookeeper: {condition: service_healthy}
+      postgres: { condition: service_healthy }
+      zookeeper: { condition: service_healthy }
     ports:
       - "8888:8888"
       - "8081:8081"
@@ -53,10 +53,10 @@ services:
     configs:
       - source: druid_common_config
         target: /opt/druid/conf/druid/single-server/micro-quickstart/_common/common.runtime.properties
-    entrypoint: ["/bin/bash", "/opt/druid/start-druid.sh"] 
+    entrypoint: [ "/bin/bash", "/opt/druid/start-druid.sh" ]
     volumes:
       - ./src/data:/opt/druid/var/druid/data
-      - ./start-druid.sh:/opt/druid/start-druid.sh  
+      - ./start-druid.sh:/opt/druid/start-druid.sh
       - druid_segments:/opt/druid/var/druid/segments
       - druid_indexing_logs:/opt/druid/var/druid/indexing-logs
     deploy:
@@ -114,6 +114,7 @@ services:
       - "8080:8080"
     volumes:
       - ./dags:/opt/airflow/dags
+      - ./src/data:/src/data
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres: { condition: service_healthy }

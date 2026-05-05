@@ -7,9 +7,13 @@ from airflow.utils.decorators import apply_defaults
 from datetime import datetime, timedelta
 import json
 import requests
+from docker.types import Mount
 
 # --- CONFIGURATION ---
-LOCAL_DATA_DIR = "/c/Users/ahoun/OneDrive/Documents/Documents/real_state_price/src/data"
+LOCAL_DATA_DIR = "/mnt/c/Users/ahoun/OneDrive/Documents/Documents/real_state_price/src/data"
+
+print(f"DEBUG: LOCAL_DATA_DIR est configuré sur : {LOCAL_DATA_DIR}")
+
 NETWORK_NAME = "real_state_price_data-stack"
 
 default_args = {
@@ -117,7 +121,13 @@ with DAG(
         "docker_url": "unix://var/run/docker.sock",
         "network_mode": NETWORK_NAME,
         "auto_remove": True,
-        "mounts": [{"source": LOCAL_DATA_DIR, "target": "/src/data", "type": "bind"}],
+        "mounts": [
+            Mount(
+                source=LOCAL_DATA_DIR,
+                target="/src/data",
+                type="bind",
+            )
+        ],
     }
 
     t1_scraping = DockerOperator(
