@@ -13,6 +13,8 @@ on:
 jobs:
   code_quality:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -26,20 +28,19 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install black  ruff nbqa
+          pip install black ruff nbqa
 
       - name: Fix imports and lint with ruff
         run: |
-          ruff check . --select I --fix --ignore E999
-          ruff check . --fix --ignore E999
+          ruff check . --select I --fix
+          ruff check . --fix
 
       - name: Format notebooks with nbqa
         run: |
-          nbqa ruff . --select I --fix --ignore E999
+          nbqa ruff . --select I --fix
           nbqa black . || true
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "style: auto-format with black and ruff"
-          file_pattern: "*.py *.ipynb"
