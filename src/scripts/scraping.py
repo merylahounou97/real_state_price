@@ -75,7 +75,7 @@ def get_all_real_estate_data(url=URL_API, limit=50, max_records=1000):
 # ------------------------------ Application ------------------------------
 # Exécuter la fonction pour récupérer les enregistrements
 print("Début de la récupération des données immobilières de l'État...")
-all_data = get_all_real_estate_data(limit=50, max_records=500)
+all_data = get_all_real_estate_data(limit=50, max_records=5000)
 
 # Afficher quelques informations sur les données récupérées
 if all_data:
