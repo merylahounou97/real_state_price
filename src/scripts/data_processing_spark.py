@@ -1,7 +1,8 @@
 from pathlib import Path
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, lower, when, to_date
+
 from delta import configure_spark_with_delta_pip
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, lower, to_date, when
 
 FILE_PATH = "/src/data/raw/donnees_immobilieres.parquet"
 OUTPUT_PATH = "/src/data/clean/donnees_immobilieres_cleaned.delta"

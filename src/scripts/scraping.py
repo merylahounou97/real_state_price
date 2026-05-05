@@ -1,8 +1,9 @@
 # ------------------------------ Importation des bibliothèques ------------------------------
-import requests
 import time
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+import requests
 
 # ------------------------------ Constantes ------------------------------
 # URL de l'API avec le jeu de données de l'inventaire immobilier de l'État

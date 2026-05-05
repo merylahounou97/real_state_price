@@ -1,13 +1,12 @@
 # ------------------------------ Importation des bibliothèques ------------------------------
-import matplotlib.pyplot as plt
-from pyspark.sql import SparkSession
+from pathlib import Path
+
 from delta import configure_spark_with_delta_pip
 from pyspark.ml import Pipeline
-from pyspark.ml.feature import StringIndexer, OneHotEncoder, VectorAssembler
 from pyspark.ml.classification import RandomForestClassifier
-from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml.clustering import KMeans
-from pathlib import Path
+from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
+from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lit, lpad
 
 # ------------------------------ Constantes ------------------------------
